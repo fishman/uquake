@@ -31,7 +31,6 @@
     GNU Lesser General Public License, Version 3
     (http://www.gnu.org/copyleft/lesser.html)
 """
-
 import numpy as np
 from uuid import uuid4
 from ..core.logging import logger
@@ -49,17 +48,16 @@ from uquake.core.inventory import Inventory, Network, Station, Location, Channel
 import random
 
 
-def read_grid(filename, format='PICKLE', **kwargs):
+def read_grid(filename, format="PICKLE", **kwargs):
     format = format.upper()
 
-    if format not in ENTRY_POINTS['grid'].keys():
-        raise TypeError(f'format {format} is currently not supported '
-                        f'for Grid objects')
+    if format not in ENTRY_POINTS["grid"].keys():
+        raise TypeError(f"format {format} is currently not supported " f"for Grid objects")
 
-    format_ep = ENTRY_POINTS['grid'][format]
-    read_format = load_entry_point(format_ep.dist.key,
-                                   f'uquake.io.grid.{format_ep.name}',
-                                   'readFormat')
+    format_ep = ENTRY_POINTS["grid"][format]
+    read_format = load_entry_point(
+        format_ep.dist.key, f"uquake.io.grid.{format_ep.name}", "readFormat"
+    )
 
     return read_format(filename, **kwargs)
 
@@ -69,10 +67,15 @@ class Grid(object):
     Object containing a regular grid
     """
 
-    def __init__(self, data_or_dims, spacing=None, origin=None,
-                 resource_id=None, value=0,
-                 coordinate_system: CoordinateSystem = CoordinateSystem()):
-
+    def __init__(
+        self,
+        data_or_dims,
+        spacing=None,
+        origin=None,
+        resource_id=None,
+        value=0,
+        coordinate_system: CoordinateSystem = CoordinateSystem(),
+    ):
         """
         can hold both 2 and 3 dimensional grid
         :param data_or_dims: either a numpy array or a tuple/list with the grid
@@ -111,7 +114,7 @@ class Grid(object):
             if origin.shape[0] == len(self.data.shape):
                 self.origin = origin
             else:
-                logger.error(f'origin shape should be {len(self.data.shape)}')
+                logger.error(f"origin shape should be {len(self.data.shape)}")
                 raise ValueError
 
         if spacing is None:
@@ -121,14 +124,15 @@ class Grid(object):
             if spacing.shape[0] == len(self.data.shape):
                 self.spacing = spacing
             else:
-                logger.error(f'spacing shape should be {len(self.data.shape)}')
+                logger.error(f"spacing shape should be {len(self.data.shape)}")
                 raise ValueError
 
             self.coordinate_system = coordinate_system
 
     def __hash__(self):
-        return hash((tuple(self.data.ravel()), tuple(self.spacing),
-                     tuple(self.shape), tuple(self.origin)))
+        return hash(
+            (tuple(self.data.ravel()), tuple(self.spacing), tuple(self.shape), tuple(self.origin))
+        )
 
     def __eq__(self, other):
         self.hash == other.hash
@@ -172,8 +176,7 @@ class Grid(object):
         origin2 = origin
         corner2 = corner
 
-        gshape = tuple([int(np.ceil((c - o) / s))
-                        for o, c, s in zip(origin2, corner2, spacing)])
+        gshape = tuple([int(np.ceil((c - o) / s)) for o, c, s in zip(origin2, corner2, spacing)])
         data = np.ones(gshape) * val
         out = cls(data, spacing=spacing, origin=origin)
         out.fill_homogeneous(val)
@@ -200,23 +203,28 @@ class Grid(object):
         spacing: %s
         origin : %s
         shape  : %s
-        """ % (self.spacing, self.origin, self.shape)
+        """ % (
+            self.spacing,
+            self.origin,
+            self.shape,
+        )
         return repr_str
 
     def __str__(self):
         return self.__repr__()
 
     def __eq__(self, other):
-        return np.all((self.shape == other.shape) &
-                      (self.spacing == other.spacing) &
-                      np.all(self.origin == other.origin))
+        return np.all(
+            (self.shape == other.shape)
+            & (self.spacing == other.spacing)
+            & np.all(self.origin == other.origin)
+        )
 
     def __mul__(self, other):
         if isinstance(other, Grid):
             if self.check_compatibility(self, other):
                 mul_data = self.data * other.data
-                return Grid(mul_data, spacing=self.spacing,
-                            origin=self.origin)
+                return Grid(mul_data, spacing=self.spacing, origin=self.origin)
             else:
                 raise ValueError
 
@@ -271,9 +279,11 @@ class Grid(object):
         check if two grids are compatible, i.e., have the same shape, spacing
         and origin
         """
-        return (np.all(self.shape == other.shape) and
-                np.all(self.spacing == other.spacing) and
-                np.all(self.origin == other.origin))
+        return (
+            np.all(self.shape == other.shape)
+            and np.all(self.spacing == other.spacing)
+            and np.all(self.origin == other.origin)
+        )
 
     def __get_shape__(self):
         """
@@ -289,6 +299,7 @@ class Grid(object):
         copy the object using copy.deepcopy
         """
         import copy
+
         cp = copy.deepcopy(self)
         return cp
 
@@ -351,8 +362,7 @@ class Grid(object):
     def flattens(self):
         return self.generate_points()
 
-    def rbf_interpolation_sensitivity(self, location, epsilon,
-                                      threshold=0.1):
+    def rbf_interpolation_sensitivity(self, location, epsilon, threshold=0.1):
         """
         calculate the sensitivity of each element given a location
         :param location: location in model space at which the interpolation
@@ -366,18 +376,15 @@ class Grid(object):
 
         # calculating the distance between the location and every grid points
 
-        dist = np.linalg.norm([x - location[0], y - location[1],
-                               z - location[2]], axis=0)
+        dist = np.linalg.norm([x - location[0], y - location[1], z - location[2]], axis=0)
 
-        sensitivity = np.exp(-(dist / epsilon) ** 2)
+        sensitivity = np.exp(-((dist / epsilon) ** 2))
         sensitivity[sensitivity < np.max(sensitivity) * threshold] = 0
         sensitivity = sensitivity / np.sum(sensitivity)
 
         return sensitivity
 
-    def generate_random_points_in_grid(self, n_points=1,
-                                       grid_space=False,
-                                       seed=None):
+    def generate_random_points_in_grid(self, n_points=1, grid_space=False, seed=None):
         """
         Generate a random set of points within the grid
         :param n_points: number of points to generate (default=1)
@@ -402,8 +409,7 @@ class Grid(object):
 
         return points
 
-    def interpolate(self, coord, grid_space=True, mode='nearest',
-                    order=1, **kwargs):
+    def interpolate(self, coord, grid_space=True, mode="nearest", order=1, **kwargs):
         """
         This function interpolate the values at a given point expressed
         either in grid or absolute coordinates
@@ -455,35 +461,30 @@ class Grid(object):
             coord = coord[:, np.newaxis]
 
         try:
-            return map_coordinates(self.data, coord, mode=mode, order=order,
-                                   **kwargs)
+            return map_coordinates(self.data, coord, mode=mode, order=order, **kwargs)
         except Exception as e:
             # logger.warning(e)
             # logger.info('transposing the coordinate array')
-            return map_coordinates(self.data, coord.T, mode=mode, order=order,
-                                   **kwargs)
+            return map_coordinates(self.data, coord.T, mode=mode, order=order, **kwargs)
 
     def fill_from_z_gradient(self, vals, zvals):
         data = self.data
         origin = self.origin
-        zinds = [int(self.transform_to([origin[0], origin[1], z_])[2]) for z_
-                 in zvals]
+        zinds = [int(self.transform_to([origin[0], origin[1], z_])[2]) for z_ in zvals]
         # print(zinds, origin)
 
-        data[:, :, zinds[0]:] = vals[0]
-        data[:, :, :zinds[-1]] = vals[-1]
+        data[:, :, zinds[0] :] = vals[0]
+        data[:, :, : zinds[-1]] = vals[-1]
 
         for i in range(len(zinds) - 1):
             # print(i)
             fill = np.linspace(vals[i + 1], vals[i], zinds[i] - zinds[i + 1])
-            data[:, :, zinds[i + 1]:zinds[i]] = fill
+            data[:, :, zinds[i + 1] : zinds[i]] = fill
 
     def get_grid_point_coordinates(self, mesh_grid=True):
-        """
-        """
+        """ """
         x = []
-        for i, (dimension, spacing) in \
-                enumerate(zip(self.data.shape, self.spacing)):
+        for i, (dimension, spacing) in enumerate(zip(self.data.shape, self.spacing)):
             v = np.arange(0, dimension) * spacing + self.origin[0]
             x.append(v)
 
@@ -496,7 +497,7 @@ class Grid(object):
         if len(x) == 3:
             return tuple(np.meshgrid(x[0], x[1], x[2]))
 
-    def write(self, filename, format='PICKLE', **kwargs):
+    def write(self, filename, format="PICKLE", **kwargs):
         """
         write the grid to disk
         :param filename: full path to the file to be written
@@ -508,23 +509,21 @@ class Grid(object):
 
         Path(filename).parent.mkdirs(parent=True, exist_ok=True)
 
-        if format not in ENTRY_POINTS['grid'].keys():
-            raise TypeError(f'format {format} is currently not supported '
-                            f'for Grid objects')
+        if format not in ENTRY_POINTS["grid"].keys():
+            raise TypeError(f"format {format} is currently not supported " f"for Grid objects")
 
-        format_ep = ENTRY_POINTS['grid'][format]
-        write_format = load_entry_point(format_ep.dist.key,
-                                        f'uquake.io.grid.{format_ep.name}',
-                                        'writeFormat')
+        format_ep = ENTRY_POINTS["grid"][format]
+        write_format = load_entry_point(
+            format_ep.dist.key, f"uquake.io.grid.{format_ep.name}", "writeFormat"
+        )
 
         return write_format(self, filename, **kwargs)
 
     @classmethod
-    def read(cls, filename, format='PICKLE'):
+    def read(cls, filename, format="PICKLE"):
         read_grid(filename, format=format)
 
-    def plot_1D(self, x, y, z_resolution, grid_space=False,
-                inventory=None, reverse_y=True):
+    def plot_1D(self, x, y, z_resolution, grid_space=False, inventory=None, reverse_y=True):
         """
 
         :param x: x location
@@ -549,25 +548,26 @@ class Grid(object):
         if reverse_y:
             plt.gca().invert_yaxis()
 
-        if (inventory):
+        if inventory:
             z_stas = []
             for network in inventory:
                 for station in network:
                     loc = station.loc
                     z_stas.append(loc[2])
 
-            plt.plot([np.mean(values)] * len(z_stas), z_stas, 'kv')
-
-
+            plt.plot([np.mean(values)] * len(z_stas), z_stas, "kv")
 
             plt.plot()
 
             plt.plot()
         plt.show()
 
-    def smooth(self,
-               sigma: Union[np.ndarray, List[Union[int, float]], Union[int, float]],
-               grid_space: bool = False, preserve_statistic: bool = True) -> None:
+    def smooth(
+        self,
+        sigma: Union[np.ndarray, List[Union[int, float]], Union[int, float]],
+        grid_space: bool = False,
+        preserve_statistic: bool = True,
+    ) -> None:
         """
         Smooth the data using a Gaussian filter.
 
@@ -603,7 +603,8 @@ class Grid(object):
             smoothed_std = np.std(smoothed_data)
 
             self.data = (smoothed_data - smoothed_mean) * (
-                        original_std / smoothed_std) + original_mean
+                original_std / smoothed_std
+            ) + original_mean
         else:
             self.data = smoothed_data
 
@@ -627,16 +628,16 @@ class Grid(object):
 
     @property
     def corner(self):
-        return np.array(self.origin) + np.array(self.shape) * \
-               np.array(self.spacing)
+        return np.array(self.origin) + np.array(self.shape) * np.array(self.spacing)
 
     from obspy.core.inventory import Inventory, Network, Station, Channel, Site, Location
     from obspy.core.util import AttribDict
     import random
     import numpy as np
 
-    def generate_random_inventory_in_grid(self, num_station: int = 1,
-                                          ratio_uni_tri: float = 3) -> Inventory:
+    def generate_random_inventory_in_grid(
+        self, num_station: int = 1, ratio_uni_tri: float = 3
+    ) -> Inventory:
         """
         Generate a random inventory within the grid.
 
@@ -649,7 +650,7 @@ class Grid(object):
         """
 
         # Create a Network
-        network = Network(code='XX', description='Generated Network')
+        network = Network(code="XX", description="Generated Network")
 
         # Generate random points
         points = self.generate_random_points_in_grid(n_points=num_station)
@@ -658,11 +659,16 @@ class Grid(object):
 
         for i, point in enumerate(points):
             # Create coordinates and a Station
-            coordinates = Coordinates(point[0], point[1], point[2],
-                                      coordinate_system=self.coordinate_system)
+            coordinates = Coordinates(
+                point[0], point[1], point[2], coordinate_system=self.coordinate_system
+            )
 
-            station = Station(code=f"ST{i:02d}", coordinates=coordinates,
-                              evaluation_mode='manual', evaluation_status='preliminary')
+            station = Station(
+                code=f"ST{i:02d}",
+                coordinates=coordinates,
+                evaluation_mode="manual",
+                evaluation_status="preliminary",
+            )
 
             # Determine if this station should be uniaxial or triaxial
             is_uni = random.choices([True, False], [ratio_uni_tri, 1])[0]
@@ -673,8 +679,9 @@ class Grid(object):
                 station.channels.append(channel)
             else:
                 for axis in ["Z", "N", "E"]:
-                    channel = Channel(code=f"HH{axis}", location_code=f"00",
-                                      coordinates=coordinates)
+                    channel = Channel(
+                        code=f"HH{axis}", location_code=f"00", coordinates=coordinates
+                    )
                     station.channels.append(channel)
 
             # Append Station to Network
@@ -704,22 +711,28 @@ def angles(travel_time_grid):
 
     tmp = np.arctan2(gds[0], gds[1])  # azimuth is zero northwards
     azimuth = travel_time_grid.copy()
-    azimuth.type = 'ANGLE'
+    azimuth.type = "ANGLE"
     azimuth.data = tmp
 
     hor = np.sqrt(gds[0] ** 2 + gds[1] ** 2)
     tmp = np.arctan2(hor, -gds[2])
     # takeoff is zero pointing down
     takeoff = travel_time_grid.copy()
-    takeoff.type = 'ANGLE'
+    takeoff.type = "ANGLE"
     takeoff.data = tmp
 
     return azimuth, takeoff
 
 
-def ray_tracer(travel_time_grid, start, grid_space=False, max_iter=1000,
-               arrival_id=None, earth_model_id=None,
-               network: str=None):
+def ray_tracer(
+    travel_time_grid,
+    start,
+    grid_space=False,
+    max_iter=1000,
+    arrival_id=None,
+    earth_model_id=None,
+    network: str = None,
+):
     """
     This function calculates the ray between a starting point (start) and an
     end point, which should be the seed of the travel_time grid, using the
@@ -756,8 +769,7 @@ def ray_tracer(travel_time_grid, start, grid_space=False, max_iter=1000,
     start = np.array(start)
 
     # calculating the gradient in every dimension at every grid points
-    gds = [Grid(gd, origin=origin, spacing=spacing)
-           for gd in np.gradient(travel_time_grid.data)]
+    gds = [Grid(gd, origin=origin, spacing=spacing) for gd in np.gradient(travel_time_grid.data)]
 
     dist = np.linalg.norm(start - end)
     cloc = start  # initializing cloc "current location" to start
@@ -776,9 +788,9 @@ def ray_tracer(travel_time_grid, start, grid_space=False, max_iter=1000,
         # if dist < spacing * 4:
         #     gamma = spacing / 4
 
-        gvect = np.array([gd.interpolate(cloc, grid_space=False,
-                                         order=interpolation_order)[0]
-                          for gd in gds])
+        gvect = np.array(
+            [gd.interpolate(cloc, grid_space=False, order=interpolation_order)[0] for gd in gds]
+        )
 
         if np.linalg.norm(gvect) == 0:
             break
@@ -797,17 +809,21 @@ def ray_tracer(travel_time_grid, start, grid_space=False, max_iter=1000,
 
     nodes.append(end)
 
-    tt = travel_time_grid.interpolate(start, grid_space=False,
-                                      order=interpolation_order)[0]
+    tt = travel_time_grid.interpolate(start, grid_space=False, order=interpolation_order)[0]
 
-    az = travel_time_grid.to_azimuth_point(start, grid_space=False,
-                                           order=interpolation_order)
-    toa = travel_time_grid.to_takeoff_point(start, grid_space=False,
-                                            order=interpolation_order)
+    az = travel_time_grid.to_azimuth_point(start, grid_space=False, order=interpolation_order)
+    toa = travel_time_grid.to_takeoff_point(start, grid_space=False, order=interpolation_order)
 
-    ray = Ray(nodes=nodes, waveform_id=travel_time_grid.waveform_id,
-              arrival_id=arrival_id, phase=travel_time_grid.phase,
-              azimuth=az, takeoff_angle=toa, travel_time=tt,
-              earth_model_id=earth_model_id, network=network)
+    ray = Ray(
+        nodes=nodes,
+        waveform_id=travel_time_grid.waveform_id,
+        arrival_id=arrival_id,
+        phase=travel_time_grid.phase,
+        azimuth=az,
+        takeoff_angle=toa,
+        travel_time=tt,
+        earth_model_id=earth_model_id,
+        network=network,
+    )
 
     return ray
